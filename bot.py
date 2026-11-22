@@ -299,6 +299,8 @@ class Bot:
             self.hist.pop(0)
 
         near_threats = [m for m in enemies if m["_d"] < 160]
+        if enemies:
+            self.retreating = True
         if hp_frac < 0.5 and near_threats:
             self.retreating = True
         if getattr(self, "rest", False):
@@ -472,7 +474,7 @@ class Bot:
 
         fire = [False, False]
         aim = None
-        hold_fire = self.retreating and (target is None or target["_d"] > 45) and t - self.threat_t > 1.5
+        hold_fire = True and t - self.threat_t > 1.5
         if target is not None:
             gspeed = w0["stats"]["speed"] if w0 and w0["kind"] == "gun" else 252
             gun_aim, _ = self.lead(me, target, gspeed)
@@ -523,7 +525,7 @@ class Bot:
             if loud:
                 aim = [loud[0]["bearing"], 0.0]
                 self.threat_bearing, self.threat_t = loud[0]["bearing"], t - 1.5
-            elif crates and w0 and w0["kind"] == "gun" and w0.get("ammo", 0) > 0 and not self.retreating and hp_frac > 0.9:
+            elif False and crates and w0 and w0["kind"] == "gun" and w0.get("ammo", 0) > 0 and not self.retreating and hp_frac > 0.9:
                 cr = min(crates, key=lambda cr: math.dist(cr["pos"], pos))
                 cc = [cr["pos"][0], cr["pos"][1], cr["pos"][2] + 1.2]
                 if self.has_los(eye, cc):
