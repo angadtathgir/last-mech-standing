@@ -451,9 +451,10 @@ class Bot:
                 if k == "laser":
                     tc = self.center(target)
                     la = [math.atan2(tc[1] - eye[1], tc[0] - eye[0]), math.atan2(tc[2] - eye[2], max(d2(tc, eye), 0.1))]
-                    aim = la
-                    on_l = abs(wrap(me["aim"][0] - la[0])) < ang_tol and abs(me["aim"][1] - la[1]) < ang_tol * 1.5
                     charge = w1.get("charge", 0)
+                    if charge > 0 or w1.get("cooldown", 0) <= 0.05:
+                        aim = la
+                    on_l = abs(wrap(me["aim"][0] - la[0])) < ang_tol and abs(me["aim"][1] - la[1]) < ang_tol * 1.5
                     if dist3 < ws.get("range", 280) and (los or charge > 0):
                         if charge >= ws["charge"] * 0.98 and on_l and los:
                             fire[1] = False
