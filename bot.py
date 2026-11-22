@@ -474,7 +474,7 @@ class Bot:
 
         fire = [False, False]
         aim = None
-        hold_fire = True and t - self.threat_t > 1.5
+        hold_fire = True
         if target is not None:
             gspeed = w0["stats"]["speed"] if w0 and w0["kind"] == "gun" else 252
             gun_aim, _ = self.lead(me, target, gspeed)
