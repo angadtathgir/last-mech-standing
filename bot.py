@@ -187,6 +187,35 @@ class Bot:
                 break
         return best
 
+    def exposed_to(self, p, z, others):
+        m = self.map
+        n = 0
+        for o in others:
+            oe = [o["pos"][0], o["pos"][1], o["pos"][2] + 8]
+            if m.los(oe, [p[0], p[1], z + 4.5]) or m.los(oe, [p[0], p[1], z + 8.5]):
+                n += 1
+        return n
+
+    def peek_point(self, me, target, others, obs, ideal):
+        m = self.map
+        pos = me["pos"]
+        tc = self.center(target)
+        best = None
+        for r in (0.0, 7.0, 14.0, 22.0):
+            for k in range(1 if r == 0 else 12):
+                a = k * math.pi / 6
+                p = [pos[0] + math.cos(a) * r, pos[1] + math.sin(a) * r]
+                if r > 0 and (not m.walkable(p[0], p[1]) or not self.in_safe(p, obs, -4) or not self.clear_path(pos, p)):
+                    continue
+                g = m.terrain(p[0], p[1]) if r > 0 else pos[2]
+                if not m.los([p[0], p[1], g + 7], tc):
+                    continue
+                ex = self.exposed_to(p, g, others)
+                score = ex * 100 + r * 0.6 + abs(d2(p, tc) - ideal) * 0.15
+                if best is None or score < best[0]:
+                    best = (score, p, ex)
+        return best
+
     def act(self, obs):
         t0 = time.perf_counter()
         me = obs["self"]
@@ -372,6 +401,17 @@ class Bot:
                 move = self.go_to(pos, tp)
             else:
                 move = self.steer(pos, ang) if self.map else unit(ang)
+            others = [m for m in enemies if m is not target and m["_d"] < 170]
+            if others and self.map is not None and target["_los"] and not zone_urgent:
+                if obs["tick"] - getattr(self, "peek_tick", -99) >= 6 or getattr(self, "peek", None) is None:
+                    self.peek_tick = obs["tick"]
+                    pk = self.peek_point(me, target, others, obs, ideal)
+                    self.peek = pk[1] if pk is not None and pk[2] < self.exposed_to(pos, pos[2], others) else None
+                if self.peek is not None and d2(self.peek, pos) > 2.0:
+                    move = self.go_to(pos, self.peek)
+                    mode = "peek"
+            else:
+                self.peek = None
             boost = boost or (dist < 60 and "lightning" in kinds and dist > ideal and me["energy"] > 40)
         else:
             if goal is None:
