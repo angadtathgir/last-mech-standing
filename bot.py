@@ -15,11 +15,6 @@ UPGRADE_RANK = ["armor", "plating", "nanites", "lightning_efficiency", "laser_ch
                 "mortar_reload", "mortar_splash", "mortar_velocity"]
 
 
-LASER_RANK = ["laser_damage", "laser_charge", "sensors", "armor", "plating", "nanites", "gyros", "servos",
-              "gun_rate", "gun_damage", "reactor", "capacitor", "gun_velocity", "gun_mag", "jets", "laser_pierce",
-              "lightning_efficiency", "lightning_range", "lightning_chain", "mortar_reload", "mortar_splash", "mortar_velocity"]
-
-
 def wrap(a):
     return (a + math.pi) % (2 * math.pi) - math.pi
 
@@ -203,8 +198,7 @@ class Bot:
 
         if obs.get("offer"):
             ch = obs["offer"]["choices"]
-            rank = LASER_RANK if "laser" in [w["kind"] for w in me["weapons"] if w] else UPGRADE_RANK
-            act["pick"] = min(range(len(ch)), key=lambda i: rank.index(ch[i]["id"]) if ch[i]["id"] in rank else 99)
+            act["pick"] = min(range(len(ch)), key=lambda i: UPGRADE_RANK.index(ch[i]["id"]) if ch[i]["id"] in UPGRADE_RANK else 99)
 
         events = obs.get("events", [])
         for ev in events:
@@ -299,8 +293,6 @@ class Bot:
             self.hist.pop(0)
 
         near_threats = [m for m in enemies if m["_d"] < 160]
-        if enemies:
-            self.retreating = True
         if hp_frac < 0.5 and near_threats:
             self.retreating = True
         if getattr(self, "rest", False):
@@ -356,7 +348,7 @@ class Bot:
                 self.strafe = -self.strafe
                 self.strafe_t = t
             if "laser" in kinds:
-                ideal = 185 if "sensors" in me.get("upgrades", []) else 175
+                ideal = 170
             elif "lightning" in kinds:
                 ideal = 35
             else:
@@ -474,7 +466,7 @@ class Bot:
 
         fire = [False, False]
         aim = None
-        hold_fire = True
+        hold_fire = self.retreating and (target is None or target["_d"] > 45) and t - self.threat_t > 1.5
         if target is not None:
             gspeed = w0["stats"]["speed"] if w0 and w0["kind"] == "gun" else 252
             gun_aim, _ = self.lead(me, target, gspeed)
@@ -525,7 +517,7 @@ class Bot:
             if loud:
                 aim = [loud[0]["bearing"], 0.0]
                 self.threat_bearing, self.threat_t = loud[0]["bearing"], t - 1.5
-            elif False and crates and w0 and w0["kind"] == "gun" and w0.get("ammo", 0) > 0 and not self.retreating and hp_frac > 0.9:
+            elif crates and w0 and w0["kind"] == "gun" and w0.get("ammo", 0) > 0 and not self.retreating and hp_frac > 0.9:
                 cr = min(crates, key=lambda cr: math.dist(cr["pos"], pos))
                 cc = [cr["pos"][0], cr["pos"][1], cr["pos"][2] + 1.2]
                 if self.has_los(eye, cc):
