@@ -57,6 +57,7 @@ class Bot:
         self.dodge_until = -1.0
         self.dodge_dir = 1
         self.last_t = 0.0
+        self.known = {}
 
     def cur_zone(self, obs):
         z = obs["zone"]
@@ -224,7 +225,20 @@ class Bot:
         hp_frac = me["hp"] / max(1, me["max_hp"])
 
         take, best_pick = None, None
+        vis_ids = set()
         for p in obs.get("pickups", []):
+            self.known[p["id"]] = p
+            vis_ids.add(p["id"])
+        eye0 = self.eye(me)
+        for pid in list(self.known):
+            if pid in vis_ids:
+                continue
+            kp = self.known[pid]["pos"]
+            dk = d2(kp, pos)
+            if dk < 12 or (dk < 150 and abs(wrap(math.atan2(kp[1] - pos[1], kp[0] - pos[0]) - me["aim"][0])) < 0.8 and self.has_los(eye0, [kp[0], kp[1], kp[2] + 1])):
+                del self.known[pid]
+        unarmed = w1 is None
+        for p in self.known.values():
             if p["kind"] in kinds or p["kind"] == "gun":
                 continue
             if abs(p["pos"][2] - pos[2]) > 5:
@@ -234,9 +248,9 @@ class Bot:
             if gain <= 0:
                 continue
             dd = d2(p["pos"], pos)
-            if dd < self.reach:
+            if dd < self.reach and p["id"] in vis_ids:
                 take = p
-            if dd < 110 and self.in_safe(p["pos"], obs, -10):
+            if dd < (250 if unarmed else 110) and self.in_safe(p["pos"], obs, -10):
                 s = gain * 40 - dd
                 if best_pick is None or s > best_pick[0]:
                     best_pick = (s, p)
@@ -362,7 +376,10 @@ class Bot:
         else:
             if goal is None:
                 cubes = [cb for cb in obs.get("cubes", []) if abs(cb["pos"][2] - pos[2]) < 5 and d2(cb["pos"], pos) < 110]
-                if cubes:
+                if unarmed and best_pick is not None:
+                    goal = best_pick[1]["pos"]
+                    mode = "loot"
+                elif cubes:
                     goal = min(cubes, key=lambda cb: d2(cb["pos"], pos))["pos"]
                     mode = "cube"
                 elif best_pick is not None:
@@ -415,6 +432,18 @@ class Bot:
             b = math.atan2(target["pos"][1] - pos[1], target["pos"][0] - pos[0]) + math.pi / 2 * self.dodge_dir
             move = self.steer(pos, b) if self.map else unit(b)
             boost = me["energy"] > 10
+
+        if hp_frac < 0.5 and not fighting_npc:
+            rx, ry = 0.0, 0.0
+            for n in npcs:
+                dn = d2(n["pos"], pos)
+                if dn < 60:
+                    w = (60 - dn) / 60
+                    rx += (pos[0] - n["pos"][0]) / max(dn, 1) * w * 2
+                    ry += (pos[1] - n["pos"][1]) / max(dn, 1) * w * 2
+            if rx or ry:
+                mx, my = move[0] + rx, move[1] + ry
+                move = self.steer(pos, math.atan2(my, mx)) if self.map else unit(math.atan2(my, mx))
 
         jump = False
         moving = math.hypot(*move) > 0.5
@@ -496,6 +525,8 @@ class Bot:
                     aim = [math.atan2(cc[1] - eye[1], cc[0] - eye[0]), math.atan2(cc[2] - eye[2], max(h, 0.1))]
                     if abs(wrap(me["aim"][0] - aim[0])) < 0.04 and abs(me["aim"][1] - aim[1]) < 0.06:
                         fire[0] = True
+            if aim is None and unarmed:
+                aim = [wrap(me["aim"][0] + 1.2), 0.0]
             if aim is None:
                 if moving:
                     base = math.atan2(move[1], move[0])
