@@ -8,7 +8,7 @@ try:
 except Exception:
     WorldMap = None
 
-WEAPON_RANK = {"lightning": 3, "laser": 3, "mortar": 1, "gun": 0}
+WEAPON_RANK = {"laser": 3, "lightning": 2, "mortar": 1, "gun": 0}
 UPGRADE_RANK = ["armor", "plating", "nanites", "lightning_efficiency", "laser_charge", "laser_damage",
                 "gun_rate", "gun_damage", "lightning_range", "reactor", "capacitor", "gyros", "servos",
                 "gun_mag", "lightning_chain", "gun_velocity", "jets", "sensors", "laser_pierce",
@@ -296,6 +296,12 @@ class Bot:
             goal = [nc[0] + (pos[0] - nc[0]) * k, nc[1] + (pos[1] - nc[1]) * k]
             boost = zone_urgent or t > obs["zone"]["shrink_start"]
 
+        crate_goal = None
+        if t < 240 and hp_frac > 0.5:
+            gc = [cr for cr in obs.get("crates", []) if abs(cr["pos"][2] - pos[2]) < 5 and 45 < d2(cr["pos"], pos) < 160 and self.in_safe(cr["pos"], obs, -10)]
+            if gc:
+                crate_goal = min(gc, key=lambda cr: d2(cr["pos"], pos))["pos"]
+
         move = [0.0, 0.0]
         mode = "idle"
         if self.retreating:
@@ -321,12 +327,12 @@ class Bot:
             if t - self.strafe_t > 0.7 + random.random() * 0.9:
                 self.strafe = -self.strafe
                 self.strafe_t = t
-            if "lightning" in kinds:
-                ideal = 28
-            elif "laser" in kinds:
-                ideal = 90
+            if "laser" in kinds:
+                ideal = 85
+            elif "lightning" in kinds:
+                ideal = 35
             else:
-                ideal = 70
+                ideal = 80
             radial = 0.0
             if not target["_los"]:
                 radial = 1.0
@@ -356,6 +362,9 @@ class Bot:
                 elif best_pick is not None:
                     goal = best_pick[1]["pos"]
                     mode = "loot"
+                elif crate_goal is not None:
+                    goal = crate_goal
+                    mode = "crate"
                 elif fighting_npc:
                     tp = target["pos"]
                     if d2(tp, pos) > 40:
@@ -468,7 +477,7 @@ class Bot:
             aim = [self.threat_bearing, 0.0]
         else:
             loud = [s for s in obs.get("sounds", []) if s["kind"] in ("gun", "laser", "laser_charge", "lightning", "boost", "step", "jet") and s["dist"] in ("near", "mid")]
-            crates = [cr for cr in obs.get("crates", []) if math.dist(cr["pos"], pos) < 70]
+            crates = [cr for cr in obs.get("crates", []) if math.dist(cr["pos"], pos) < 120]
             if loud:
                 aim = [loud[0]["bearing"], 0.0]
                 self.threat_bearing, self.threat_t = loud[0]["bearing"], t - 1.5
