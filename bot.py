@@ -15,6 +15,11 @@ UPGRADE_RANK = ["armor", "plating", "nanites", "lightning_efficiency", "laser_ch
                 "mortar_reload", "mortar_splash", "mortar_velocity"]
 
 
+LASER_RANK = ["laser_damage", "laser_charge", "sensors", "armor", "plating", "nanites", "gyros", "servos",
+              "gun_rate", "gun_damage", "reactor", "capacitor", "gun_velocity", "gun_mag", "jets", "laser_pierce",
+              "lightning_efficiency", "lightning_range", "lightning_chain", "mortar_reload", "mortar_splash", "mortar_velocity"]
+
+
 def wrap(a):
     return (a + math.pi) % (2 * math.pi) - math.pi
 
@@ -198,7 +203,8 @@ class Bot:
 
         if obs.get("offer"):
             ch = obs["offer"]["choices"]
-            act["pick"] = min(range(len(ch)), key=lambda i: UPGRADE_RANK.index(ch[i]["id"]) if ch[i]["id"] in UPGRADE_RANK else 99)
+            rank = LASER_RANK if "laser" in [w["kind"] for w in me["weapons"] if w] else UPGRADE_RANK
+            act["pick"] = min(range(len(ch)), key=lambda i: rank.index(ch[i]["id"]) if ch[i]["id"] in rank else 99)
 
         events = obs.get("events", [])
         for ev in events:
@@ -348,7 +354,7 @@ class Bot:
                 self.strafe = -self.strafe
                 self.strafe_t = t
             if "laser" in kinds:
-                ideal = 170
+                ideal = 185 if "sensors" in me.get("upgrades", []) else 175
             elif "lightning" in kinds:
                 ideal = 35
             else:
