@@ -211,6 +211,8 @@ class Bot:
                     self.last_hit_by = ev["by"]
             elif ev["type"] == "hit":
                 self.last_combat_t = t
+            elif ev["type"] == "kill":
+                self.rest = True
 
         c, r, nc, nr = self.cur_zone(obs)
         if self.map is not None:
@@ -267,7 +269,7 @@ class Bot:
         if target is None and npcs:
             hit_by_npc = any(ev["type"] == "damaged" and ev.get("weapon") == "npc" for ev in events)
             cand = [n for n in npcs if math.dist(n["pos"], pos) < 70 and self.has_los(eye, self.center(n))]
-            if cand and (hit_by_npc or (hp_frac > 0.6 and t < 260)):
+            if cand and (hit_by_npc or (hp_frac > 0.9 and t < 260)):
                 target = min(cand, key=lambda n: math.dist(n["pos"], pos))
                 fighting_npc = True
         self.target_id = target["id"] if target else None
@@ -277,8 +279,12 @@ class Bot:
             self.hist.pop(0)
 
         near_threats = [m for m in enemies if m["_d"] < 160]
-        if hp_frac < 0.38 and near_threats:
+        if hp_frac < 0.5 and near_threats:
             self.retreating = True
+        if getattr(self, "rest", False):
+            if hp_frac < 0.85 and not any(m["_d"] < 60 and m["_los"] for m in enemies):
+                self.retreating = True
+            self.rest = False
         if self.retreating and (hp_frac > 0.8 or not enemies and t - self.last_combat_t > 12):
             self.retreating = False
         if self.retreating and target is not None and target.get("hp", 9999) < 140 and target["_d"] < 60:
@@ -297,7 +303,7 @@ class Bot:
             boost = zone_urgent or t > obs["zone"]["shrink_start"]
 
         crate_goal = None
-        if t < 240 and hp_frac > 0.5:
+        if t < 240 and hp_frac > 0.9:
             gc = [cr for cr in obs.get("crates", []) if abs(cr["pos"][2] - pos[2]) < 5 and 45 < d2(cr["pos"], pos) < 160 and self.in_safe(cr["pos"], obs, -10)]
             if gc:
                 crate_goal = min(gc, key=lambda cr: d2(cr["pos"], pos))["pos"]
@@ -431,7 +437,7 @@ class Bot:
 
         fire = [False, False]
         aim = None
-        hold_fire = self.retreating and (target is None or target["_d"] > 45)
+        hold_fire = self.retreating and (target is None or target["_d"] > 45) and t - self.threat_t > 1.5
         if target is not None:
             gspeed = w0["stats"]["speed"] if w0 and w0["kind"] == "gun" else 252
             gun_aim, _ = self.lead(me, target, gspeed)
@@ -482,7 +488,7 @@ class Bot:
             if loud:
                 aim = [loud[0]["bearing"], 0.0]
                 self.threat_bearing, self.threat_t = loud[0]["bearing"], t - 1.5
-            elif crates and w0 and w0["kind"] == "gun" and w0.get("ammo", 0) > 0 and not self.retreating:
+            elif crates and w0 and w0["kind"] == "gun" and w0.get("ammo", 0) > 0 and not self.retreating and hp_frac > 0.9:
                 cr = min(crates, key=lambda cr: math.dist(cr["pos"], pos))
                 cc = [cr["pos"][0], cr["pos"][1], cr["pos"][2] + 1.2]
                 if self.has_los(eye, cc):
@@ -508,4 +514,5 @@ class Bot:
         return act
 
 
-mf.run(Bot)
+if __name__ == "__main__":
+    mf.run(Bot)

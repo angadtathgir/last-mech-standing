@@ -102,7 +102,7 @@ class WorldMap:
         c = self.cell(x, y)
         if c < 0:
             return True
-        if z < self.ground[c] - 0.3:
+        if z < self.ground[c] + 3.0 and z < self.terrain(x, y) - 0.3:
             return True
         ivs = self.solids.get(c)
         if ivs:
