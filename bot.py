@@ -279,15 +279,6 @@ class Bot:
             return s
 
         target = min(enemies, key=tscore) if enemies else None
-        if enemies:
-            ne = min(enemies, key=lambda m: m["_d"])
-            self.last_enemy = (list(ne["pos"]), t)
-        for snd in obs.get("sounds", []):
-            if snd["kind"] in ("gun", "crate", "laser", "lightning", "mortar", "explosion", "step", "boost", "jet", "reload") and snd["dist"] in ("mid", "far"):
-                rng = 110 if snd["dist"] == "mid" else 220
-                sp = [pos[0] + math.cos(snd["bearing"]) * rng, pos[1] + math.sin(snd["bearing"]) * rng, pos[2]]
-                if getattr(self, "heard", None) is None or t - self.heard[1] > 3 or snd["dist"] == "mid":
-                    self.heard = (sp, t)
         fighting_npc = False
         if target is None and npcs:
             hit_by_npc = any(ev["type"] == "damaged" and ev.get("weapon") == "npc" for ev in events)
@@ -357,7 +348,7 @@ class Bot:
                 self.strafe = -self.strafe
                 self.strafe_t = t
             if "laser" in kinds:
-                ideal = 85
+                ideal = 170
             elif "lightning" in kinds:
                 ideal = 35
             else:
@@ -402,12 +393,6 @@ class Bot:
                     if d2(tp, pos) > 40:
                         goal = tp
                     mode = "npc"
-                elif hp_frac > 0.8 and w1 is not None and getattr(self, "last_enemy", None) and t - self.last_enemy[1] < 20 and self.in_safe(self.last_enemy[0], obs, -15):
-                    goal = self.last_enemy[0]
-                    mode = "hunt"
-                elif hp_frac > 0.8 and w1 is not None and getattr(self, "heard", None) and t - self.heard[1] < 12 and self.in_safe(self.heard[0], obs, -15):
-                    goal = self.heard[0]
-                    mode = "hunt_sound"
                 elif d2(pos, nc) > nr * 0.6:
                     self.goal_is_zone = True
                     goal = nc
@@ -493,7 +478,7 @@ class Bot:
             pitch_err = abs(me["aim"][1] - gun_aim[1])
             on = yaw_err < ang_tol * 1.4 and pitch_err < ang_tol * 2
             if w0 and w0["kind"] == "gun" and los and not hold_fire:
-                if dist3 < w0["stats"]["range"] * 0.98 and on and w0.get("ammo", 1) > 0:
+                if dist3 < (130 if "laser" in kinds else w0["stats"]["range"] * 0.98) and on and w0.get("ammo", 1) > 0:
                     fire[0] = True
             if w1 is not None and not hold_fire:
                 k = w1["kind"]
